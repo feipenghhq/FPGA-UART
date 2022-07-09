@@ -41,12 +41,11 @@ module uart_rx (
     reg [3:0]       sample_cnt;
 
     localparam IDLE  = 0;
-    localparam WAIT  = 1;
-    localparam START = 2;
-    localparam DATA  = 3;
-    localparam STOP  = 4;
-    reg [2:0]       state;
-    logic [2:0]     state_next;
+    localparam START = 1;
+    localparam DATA  = 2;
+    localparam STOP  = 3;
+    reg [1:0]       state;
+    logic [1:0]     state_next;
 
     // --------------------------------------------
     //  main logic
@@ -69,12 +68,16 @@ module uart_rx (
     always @(*) begin
         state_next = state;
         case(state)
-            IDLE:  if (!uart_rxd_synced & cfg_rxen) state_next = WAIT;
-            WAIT:  if (sample_cnt_fire) state_next = START; // wait till the middle of the start signal
-            START: if (baud_tick) state_next = DATA;
+            IDLE:  if (!uart_rxd_synced & cfg_rxen) state_next = START;
+            START: if (sample_cnt_fire) state_next = DATA; // wait till the middle of the start signal
             DATA:  if (cycle_cnt_cmpl) state_next = STOP;
             STOP:  if (cycle_cnt_cmpl) state_next = IDLE;
         endcase
+    end
+
+    always @(posedge clk) begin
+        if (rst) state <= IDLE;
+        else state <= state_next;
     end
 
     always @(posedge clk) begin
@@ -90,18 +93,15 @@ module uart_rx (
                 baud_clear <= 1'b1;
                 sample_cnt <= 7;
             end
-            WAIT: begin
+            START: begin
                 // clear baud counter when we reach the middle of the bit
                 // so we restart the baud counter on the middle of each bit
                 if (sample_cnt_fire) baud_clear <= 1'b1;
-            end
-            START: begin
                 cycle_cnt <= 7;
             end
             DATA: begin
                 if (baud_tick) rx_data <= {uart_rxd_synced, rx_data[7:1]};
                 if (cycle_cnt_cmpl) cycle_cnt <= {2'b0, cfg_nstop};
-
             end
             STOP: begin
                 rx_valid <= cycle_cnt_cmpl;

@@ -8,7 +8,7 @@
  * ---------------------------------------------------------------
  * Avalon Memory Mapped Uart Core
  * ---------------------------------------------------------------
-*/
+ */
 
 
 module avalon_uart (
@@ -21,6 +21,9 @@ module avalon_uart (
     input [31:0]        avn_writedata,
     output reg [31:0]   avn_readdata,
     output              avn_waitrequest,
+
+    output              int_txwm,
+    output              int_rxwm,
 
     output              uart_txd,
     input               uart_rxd
@@ -99,8 +102,8 @@ module avalon_uart (
 
     // ie 0x10
     logic [31:0]    ie;
-    reg             ie_txwm;
     reg             ie_rxwm;
+    reg             ie_txwm;
     logic           ie_write;
     assign ie = {30'b0, ip_rxwm, ip_txwm};
 
@@ -112,7 +115,7 @@ module avalon_uart (
 
     // div 0x18
     logic [31:0]    div;
-    reg [15:0]      div_div;
+    reg [15:0]      div_div;    // div = (fin / fbaud - 1)
     logic           div_write;
     assign div = {16'b0, div_div};
 
@@ -139,7 +142,9 @@ module avalon_uart (
         rxctrl_write = 1'b0;
         ie_write = 1'b0;
         div_write = 1'b0;
+        /* verilator lint_off CASEINCOMPLETE */
         case(avn_address)
+        /* verilator lint_on CASEINCOMPLETE */
         5'h00: txdata_write = avn_write;
         5'h08: txctrl_write = avn_write;
         5'h0C: rxctrl_write = avn_write;
@@ -186,6 +191,9 @@ module avalon_uart (
     //  Glue logic
     // --------------------------------------------
 
+    assign int_txwm = ip_txwm;
+    assign int_rxwm = ip_rxwm;
+
     assign rxdata_read = (avn_address == 5'h04) & avn_read;
 
     // Uart configuration
@@ -200,18 +208,18 @@ module avalon_uart (
         else txdata_valid <= txdata_write;
     end
 
-    assign txfifo_push  = ~txdata_valid & txfifo_full;
+    assign txfifo_push  = txdata_valid & ~txfifo_full;
     assign txfifo_pop   = ~txfifo_empty & tx_ready;
     assign txfifo_din   = txdata_data;
     assign tx_valid     = txfifo_pop;
     assign tx_data      = txfifo_dout;
-    assign txwm         = txfifo_entry < {1'b0, txctrl_txcnt};
+    assign txwm         = (txfifo_entry < {1'b0, txctrl_txcnt}) & ie_txwm;
 
     // RX fifo and Uart rx logic
     assign rxfifo_push  = rx_valid & ~rxfifo_full;
     assign rxfifo_pop   = rxdata_read;
     assign rxfifo_din   = rx_data;
-    assign rxwm         = rxfifo_entry > {1'0, rxctrl_rxcnt};
+    assign rxwm         = (rxfifo_entry > {1'0, rxctrl_rxcnt}) & ie_rxwm;
 
     // --------------------------------------------
     //  Module instantiation
@@ -230,6 +238,7 @@ module avalon_uart (
         .dout   (txfifo_dout),
         .full   (txfifo_full),
         .empty  (txfifo_empty),
+        .entry  (txfifo_entry)
     );
 
     uart_fifo #( .WIDTH (8), .DEPTH (8))
@@ -242,6 +251,7 @@ module avalon_uart (
         .dout   (rxfifo_dout),
         .full   (rxfifo_full),
         .empty  (rxfifo_empty),
+        .entry  (rxfifo_entry)
     );
 
 endmodule

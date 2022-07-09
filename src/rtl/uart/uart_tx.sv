@@ -64,6 +64,11 @@ module uart_tx (
     end
 
     always @(posedge clk) begin
+        if (rst) state <= IDLE;
+        else state <= state_next;
+    end
+
+    always @(posedge clk) begin
 
         baud_clear <= 1'b0;
         tx_ready <= 1'b0;
@@ -73,8 +78,8 @@ module uart_tx (
         case(state)
             IDLE: begin
                 buffer <= tx_data;
-                tx_ready <= 1'b1;
-                uart_txd <= cfg_txen;
+                tx_ready <= ~req;
+                uart_txd <= 1'b1;
                 baud_clear <= 1'b1;
             end
             START: begin
