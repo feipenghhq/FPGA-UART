@@ -219,7 +219,7 @@ module avalon_uart (
     assign rxfifo_push  = rx_valid & ~rxfifo_full;
     assign rxfifo_pop   = rxdata_read;
     assign rxfifo_din   = rx_data;
-    assign rxwm         = (rxfifo_entry > {1'0, rxctrl_rxcnt}) & ie_rxwm;
+    assign rxwm         = (rxfifo_entry > {1'b0, rxctrl_rxcnt}) & ie_rxwm;
 
     // --------------------------------------------
     //  Module instantiation

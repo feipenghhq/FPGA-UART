@@ -46,7 +46,7 @@ class Env:
         await self.avalon.write(0x18, div)
         await Timer(100, units="ns")
 
-    async def setup(self):
+    async def setup(self, nstop=0, txcnt=4, rxcnt=4, div=867):
         await self.clock_gen()
         await self.reset_gen()
-        await self.uart_setup()
+        await self.uart_setup(nstop, txcnt, rxcnt, div)
