@@ -28,8 +28,8 @@ void avalon_uart_init(uint32_t base, avalon_uart_init_s* init_cfg) {
     _txctrl.txcnt = init_cfg->txcnt;
     _rxctrl.rxen = init_cfg->rxen;
     _rxctrl.rxcnt = init_cfg->rxcnt;
-    _ie.txwm = init_cfg->txwm;
-    _ie.rxwm = init_cfg->rxwm;
+    _ie.txwm = init_cfg->ie_txwm;
+    _ie.rxwm = init_cfg->ie_rxwm;
     _div.div = init_cfg->div;
 
     *AVALON_UART_REG2POINTER(base, AVALON_UART_TXCTRL_REG) = _txctrl.reg;
@@ -52,12 +52,12 @@ int avalon_uart_close(uint32_t base) {
     *AVALON_UART_REG2POINTER(base, AVALON_UART_RXCTRL_REG) = _rxctrl.reg;
 }
 
-void avalon_uart_write_byte_blocking(uint32_t base, const char* ptr) {
+void avalon_uart_write_byte_blocking(uint32_t base, const char c) {
     // wait till the txdata fifo has space
     do {
         _txdata.reg = *AVALON_UART_REG2POINTER(base, AVALON_UART_TXDATA_REG);
-    } while(!_txdata.full);
-    _txdata.data = *ptr;
+    } while(_txdata.full);
+    _txdata.data = c;
     *AVALON_UART_REG2POINTER(base, AVALON_UART_TXDATA_REG) = _txdata.reg;
 }
 
@@ -69,3 +69,10 @@ int  avalon_uart_read_byte_blocking(uint32_t base) {
     return _rxdata.data;
 }
 
+void avalon_uart_putnc_blocking(uint32_t base, char *buf, size_t nbytes) {
+    while (nbytes > 0) {
+        avalon_uart_write_byte_blocking(base, *buf);
+        buf++;
+        nbytes--;
+    }
+}
